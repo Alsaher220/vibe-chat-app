@@ -9,6 +9,7 @@ const firebaseConfig = {
     messagingSenderId: "447918097803",
     appId: "1:447918097803:web:b8d23000ff41b915eedb8e"
 };
+
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
@@ -264,11 +265,29 @@ function openChat(chatId, otherUser) {
     document.getElementById('chatUsername').textContent = otherUser.username;
     document.getElementById('chatUserPic').src = otherUser.profilePic;
     
+    // Show back button on mobile
+    if (window.innerWidth <= 768) {
+        document.querySelector('.back-btn').style.display = 'block';
+        document.querySelector('.chat-list-panel').classList.add('has-active-chat');
+    }
+    
     if (unsubscribeMessages) {
         unsubscribeMessages();
     }
     
     loadMessages(chatId);
+}
+
+function closeChat() {
+    document.getElementById('activeChat').classList.add('hidden');
+    document.getElementById('noChatSelected').classList.remove('hidden');
+    document.querySelector('.back-btn').style.display = 'none';
+    document.querySelector('.chat-list-panel').classList.remove('has-active-chat');
+    
+    if (unsubscribeMessages) {
+        unsubscribeMessages();
+    }
+    activeChat = null;
 }
 
 function loadMessages(chatId) {
