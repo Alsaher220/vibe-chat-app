@@ -9,320 +9,450 @@ const firebaseConfig = {
     messagingSenderId: "447918097803",
     appId: "1:447918097803:web:b8d23000ff41b915eedb8e"
 };
-
-// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
 const db = firebase.firestore();
+const storage = firebase.storage();
 
 // ====================================
 // AGORA CONFIGURATION
 // ====================================
 const AGORA_APP_ID = "3b9822e28fc04a8bbccfc78314fda8f4";
-const AGORA_CERTIFICATE = "3be059da007145adbdbe4883f152ce90";
-
-// Admin secret key (change this to whatever you want!)
 const ADMIN_SECRET = "vibeadmin123";
-
-// Your pre-recorded video URLs (add your videos here!)
-const adminVideoUrls = [
-    'video1.mp4',  // Replace with your actual video URLs
-    'video2.mp4',
-    'video3.mp4'
-];
 
 // ====================================
 // GLOBAL VARIABLES
 // ====================================
-let currentUsername = '';
+let currentUser = null;
 let isAdmin = false;
-let unsubscribe = null;
+let activeChat = null;
+let unsubscribeMessages = null;
+let adminVideoUrls = [];
 let agoraClient = null;
-let localTracks = {
-    videoTrack: null,
-    audioTrack: null
-};
-let remoteUsers = {};
-let channelName = 'vibe-chat-room';
+let localTracks = { videoTrack: null, audioTrack: null };
 
-// ====================================
-// LOGIN FUNCTION
-// ====================================
-function login() {
-    const username = document.getElementById('usernameInput').value.trim();
-    const adminKey = document.getElementById('adminKeyInput').value.trim();
-    
-    if (username === '') {
-        alert('Please enter your name!');
-        return;
-    }
-    
-    // Check if admin
-    if (adminKey === ADMIN_SECRET) {
-        isAdmin = true;
-        document.getElementById('adminBadge').classList.remove('hidden');
-    }
-    
-    currentUsername = username;
-    document.getElementById('currentUser').textContent = username;
-    document.getElementById('loginSection').classList.add('hidden');
-    document.getElementById('chatSection').classList.remove('hidden');
-    
-    // Start listening to messages
-    loadMessages();
-    
-    // Initialize Agora
-    initializeAgora();
+// Load admin videos
+if (localStorage.getItem('adminVideos')) {
+    adminVideoUrls = JSON.parse(localStorage.getItem('adminVideos'));
 }
 
 // ====================================
-// LOGOUT FUNCTION
+// AUTH STATE LISTENER
 // ====================================
-function logout() {
-    if (unsubscribe) {
-        unsubscribe();
-    }
-    
-    // Leave Agora channel
-    if (agoraClient) {
-        agoraClient.leave();
-    }
-    
-    currentUsername = '';
-    isAdmin = false;
-    document.getElementById('usernameInput').value = '';
-    document.getElementById('adminKeyInput').value = '';
-    document.getElementById('adminBadge').classList.add('hidden');
-    document.getElementById('chatSection').classList.add('hidden');
-    document.getElementById('loginSection').classList.remove('hidden');
-}
-
-// ====================================
-// AGORA INITIALIZATION
-// ====================================
-function initializeAgora() {
-    agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-}
-
-// ====================================
-// SEND MESSAGE FUNCTION
-// ====================================
-function sendMessage() {
-    const messageInput = document.getElementById('messageInput');
-    const messageText = messageInput.value.trim();
-    
-    if (messageText === '') {
-        return;
-    }
-    
-    db.collection('messages').add({
-        text: messageText,
-        sender: currentUsername,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    })
-    .then(() => {
-        messageInput.value = '';
-    })
-    .catch((error) => {
-        console.error('Error sending message:', error);
-        alert('Failed to send message. Please try again.');
-    });
-}
-
-// Allow Enter key to send message
-document.addEventListener('DOMContentLoaded', () => {
-    const messageInput = document.getElementById('messageInput');
-    if (messageInput) {
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
+auth.onAuthStateChanged((user) => {
+    if (user) {
+        loadUserProfile(user.uid);
+    } else {
+        document.getElementById('authSection').classList.remove('hidden');
+        document.getElementById('appSection').classList.add('hidden');
     }
 });
 
 // ====================================
-// LOAD MESSAGES FUNCTION
+// AUTH FUNCTIONS
 // ====================================
-function loadMessages() {
-    const messagesDiv = document.getElementById('messages');
+function showSignup() {
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('signupForm').classList.remove('hidden');
+}
+
+function showLogin() {
+    document.getElementById('signupForm').classList.add('hidden');
+    document.getElementById('loginForm').classList.remove('hidden');
+}
+
+function previewProfilePic() {
+    const file = document.getElementById('profilePicInput').files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('profilePreview').innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+async function signupUser() {
+    const username = document.getElementById('signupUsername').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const profilePicFile = document.getElementById('profilePicInput').files[0];
+
+    if (!username || !email || !password) {
+        alert('Please fill in all fields!');
+        return;
+    }
+
+    if (password.length < 6) {
+        alert('Password must be at least 6 characters!');
+        return;
+    }
+
+    try {
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+
+        let profilePicUrl = 'https://via.placeholder.com/150?text=' + username.charAt(0).toUpperCase();
+        if (profilePicFile) {
+            const storageRef = storage.ref(`profilePics/${user.uid}`);
+            await storageRef.put(profilePicFile);
+            profilePicUrl = await storageRef.getDownloadURL();
+        }
+
+        await db.collection('users').doc(user.uid).set({
+            uid: user.uid,
+            username: username,
+            email: email,
+            profilePic: profilePicUrl,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert('Account created successfully! ✅');
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function loginUser() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const adminKey = document.getElementById('loginAdminKey').value.trim();
+
+    if (!email || !password) {
+        alert('Please enter email and password!');
+        return;
+    }
+
+    if (adminKey === ADMIN_SECRET) {
+        isAdmin = true;
+    }
+
+    try {
+        await auth.signInWithEmailAndPassword(email, password);
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+function logoutUser() {
+    auth.signOut();
+}
+
+async function loadUserProfile(uid) {
+    const userDoc = await db.collection('users').doc(uid).get();
+    if (userDoc.exists) {
+        currentUser = userDoc.data();
+        document.getElementById('currentUsername').textContent = currentUser.username;
+        document.getElementById('currentUserPic').src = currentUser.profilePic;
+        
+        if (isAdmin) {
+            document.getElementById('adminBadge').classList.remove('hidden');
+            document.getElementById('adminPanel').classList.remove('hidden');
+            loadAdminVideos();
+        }
+        
+        document.getElementById('authSection').classList.add('hidden');
+        document.getElementById('appSection').classList.remove('hidden');
+        
+        loadChatsList();
+    }
+}
+
+// ====================================
+// CHAT LIST FUNCTIONS
+// ====================================
+async function loadChatsList() {
+    const chatsListDiv = document.getElementById('chatsList');
     
-    unsubscribe = db.collection('messages')
-        .orderBy('timestamp', 'asc')
+    db.collection('chats')
+        .where('participants', 'array-contains', currentUser.uid)
         .onSnapshot((snapshot) => {
-            messagesDiv.innerHTML = '';
+            if (snapshot.empty) {
+                chatsListDiv.innerHTML = '<p class="empty-state">No conversations yet. Start chatting!</p>';
+                return;
+            }
             
-            snapshot.forEach((doc) => {
-                const message = doc.data();
-                displayMessage(message);
+            chatsListDiv.innerHTML = '';
+            snapshot.forEach(async (doc) => {
+                const chat = doc.data();
+                const otherUserId = chat.participants.find(id => id !== currentUser.uid);
+                const otherUserDoc = await db.collection('users').doc(otherUserId).get();
+                const otherUser = otherUserDoc.data();
+                
+                const chatItem = document.createElement('div');
+                chatItem.className = 'chat-item';
+                chatItem.onclick = () => openChat(doc.id, otherUser);
+                chatItem.innerHTML = `
+                    <img src="${otherUser.profilePic}" class="chat-item-pic" alt="${otherUser.username}">
+                    <div class="chat-item-info">
+                        <div class="chat-item-name">${otherUser.username}</div>
+                        <div class="chat-item-preview">${chat.lastMessage || 'Start chatting!'}</div>
+                    </div>
+                `;
+                chatsListDiv.appendChild(chatItem);
             });
-            
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         });
 }
 
 // ====================================
-// DISPLAY MESSAGE FUNCTION
+// USER SEARCH
 // ====================================
-function displayMessage(message) {
-    const messagesDiv = document.getElementById('messages');
-    const messageDiv = document.createElement('div');
+function showUserSearch() {
+    document.getElementById('userSearchModal').classList.remove('hidden');
+}
+
+function closeUserSearch() {
+    document.getElementById('userSearchModal').classList.add('hidden');
+    document.getElementById('userSearchInput').value = '';
+    document.getElementById('searchResults').innerHTML = '';
+}
+
+async function searchUsers() {
+    const query = document.getElementById('userSearchInput').value.trim().toLowerCase();
+    const resultsDiv = document.getElementById('searchResults');
     
-    const isOwn = message.sender === currentUsername;
-    messageDiv.className = `message ${isOwn ? 'own' : 'other'}`;
+    if (!query) {
+        resultsDiv.innerHTML = '';
+        return;
+    }
     
-    let timeString = 'Just now';
-    if (message.timestamp) {
-        const date = message.timestamp.toDate();
-        timeString = date.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
+    const usersSnapshot = await db.collection('users').get();
+    resultsDiv.innerHTML = '';
+    
+    usersSnapshot.forEach((doc) => {
+        const user = doc.data();
+        if (user.uid !== currentUser.uid && user.username.toLowerCase().includes(query)) {
+            const userResult = document.createElement('div');
+            userResult.className = 'user-result';
+            userResult.onclick = () => startChatWith(user);
+            userResult.innerHTML = `
+                <img src="${user.profilePic}" class="user-result-pic" alt="${user.username}">
+                <span>${user.username}</span>
+            `;
+            resultsDiv.appendChild(userResult);
+        }
+    });
+}
+
+async function startChatWith(otherUser) {
+    const participants = [currentUser.uid, otherUser.uid].sort();
+    const chatId = participants.join('_');
+    
+    const chatRef = db.collection('chats').doc(chatId);
+    const chatDoc = await chatRef.get();
+    
+    if (!chatDoc.exists) {
+        await chatRef.set({
+            participants: participants,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastMessage: null
         });
     }
     
+    closeUserSearch();
+    openChat(chatId, otherUser);
+}
+
+// ====================================
+// OPEN CHAT
+// ====================================
+function openChat(chatId, otherUser) {
+    activeChat = { id: chatId, user: otherUser };
+    
+    document.getElementById('noChatSelected').classList.add('hidden');
+    document.getElementById('activeChat').classList.remove('hidden');
+    document.getElementById('chatUsername').textContent = otherUser.username;
+    document.getElementById('chatUserPic').src = otherUser.profilePic;
+    
+    if (unsubscribeMessages) {
+        unsubscribeMessages();
+    }
+    
+    loadMessages(chatId);
+}
+
+function loadMessages(chatId) {
+    const messagesArea = document.getElementById('messagesArea');
+    
+    unsubscribeMessages = db.collection('chats').doc(chatId).collection('messages')
+        .orderBy('timestamp', 'asc')
+        .onSnapshot((snapshot) => {
+            messagesArea.innerHTML = '';
+            snapshot.forEach((doc) => {
+                const msg = doc.data();
+                displayMessage(msg);
+            });
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        });
+}
+
+function displayMessage(msg) {
+    const messagesArea = document.getElementById('messagesArea');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${msg.senderId === currentUser.uid ? 'own' : 'other'}`;
+    
+    let timeString = 'Just now';
+    if (msg.timestamp) {
+        const date = msg.timestamp.toDate();
+        timeString = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+    
     messageDiv.innerHTML = `
-        ${!isOwn ? `<div class="message-sender">${message.sender}</div>` : ''}
         <div class="message-content">
-            ${message.text}
+            ${msg.text}
             <div class="message-time">${timeString}</div>
         </div>
     `;
+    messagesArea.appendChild(messageDiv);
+}
+
+function handleEnter(e) {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+}
+
+async function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
     
-    messagesDiv.appendChild(messageDiv);
+    if (!text || !activeChat) return;
+    
+    await db.collection('chats').doc(activeChat.id).collection('messages').add({
+        text: text,
+        senderId: currentUser.uid,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    await db.collection('chats').doc(activeChat.id).update({
+        lastMessage: text,
+        lastMessageTime: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    input.value = '';
 }
 
 // ====================================
 // VIDEO CALL FUNCTIONS
 // ====================================
 async function startVideoCall() {
-    const videoSection = document.getElementById('videoSection');
-    videoSection.classList.remove('hidden');
-    
-    // Send message that call started
-    db.collection('messages').add({
-        text: '📹 Started a video call',
-        sender: currentUsername,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    document.getElementById('videoSection').classList.remove('hidden');
     
     if (isAdmin) {
-        // ADMIN: Show pre-recorded video (fake live!)
         showAdminFakeVideo();
     } else {
-        // REGULAR USER: Start real video call
         await startRealVideoCall();
     }
 }
 
-// ====================================
-// ADMIN FAKE VIDEO (Pre-recorded)
-// ====================================
 function showAdminFakeVideo() {
     const fakeVideo = document.getElementById('adminFakeVideo');
-    const localVideo = document.getElementById('localVideo');
-    
-    // Hide real video elements
-    localVideo.style.display = 'none';
-    
-    // Show fake video
+    document.getElementById('localVideo').style.display = 'none';
     fakeVideo.classList.remove('hidden');
     
-    // Pick random pre-recorded video
     const randomVideo = adminVideoUrls[Math.floor(Math.random() * adminVideoUrls.length)];
-    fakeVideo.src = randomVideo;
-    
-    console.log('Admin using pre-recorded video! 😎');
+    fakeVideo.src = randomVideo || 'video1.mp4';
 }
 
-// ====================================
-// REAL VIDEO CALL (For Regular Users)
-// ====================================
 async function startRealVideoCall() {
     try {
-        // Generate token (in production, get this from your server)
-        const token = null; // For testing mode, token is null
+        agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        await agoraClient.join(AGORA_APP_ID, activeChat.id, null, currentUser.uid);
         
-        // Join channel
-        await agoraClient.join(AGORA_APP_ID, channelName, token, currentUsername);
-        
-        // Create local tracks
         localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
         localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack();
         
-        // Play local video
         localTracks.videoTrack.play('localVideo');
-        
-        // Publish local tracks
         await agoraClient.publish([localTracks.audioTrack, localTracks.videoTrack]);
         
-        console.log('Video call started successfully!');
-        
-        // Listen for remote users
-        agoraClient.on('user-published', handleUserPublished);
-        agoraClient.on('user-unpublished', handleUserUnpublished);
-        
+        agoraClient.on('user-published', async (user, mediaType) => {
+            await agoraClient.subscribe(user, mediaType);
+            if (mediaType === 'video') {
+                const remoteDiv = document.createElement('div');
+                remoteDiv.id = `player-${user.uid}`;
+                remoteDiv.style = 'width:200px;height:150px;background:#222;border-radius:10px;';
+                document.getElementById('remoteVideos').appendChild(remoteDiv);
+                user.videoTrack.play(`player-${user.uid}`);
+            }
+            if (mediaType === 'audio') {
+                user.audioTrack.play();
+            }
+        });
     } catch (error) {
-        console.error('Error starting video call:', error);
-        alert('Could not start video call. Please check camera/microphone permissions.');
+        console.error('Video call error:', error);
+        alert('Could not start video call');
     }
 }
 
-// Handle remote user joining
-async function handleUserPublished(user, mediaType) {
-    await agoraClient.subscribe(user, mediaType);
-    
-    if (mediaType === 'video') {
-        const remoteVideoContainer = document.getElementById('remoteVideos');
-        const playerDiv = document.createElement('div');
-        playerDiv.id = `player-${user.uid}`;
-        playerDiv.className = 'remote-video-player';
-        remoteVideoContainer.appendChild(playerDiv);
-        
-        user.videoTrack.play(`player-${user.uid}`);
-    }
-    
-    if (mediaType === 'audio') {
-        user.audioTrack.play();
-    }
-}
-
-// Handle remote user leaving
-function handleUserUnpublished(user) {
-    const playerDiv = document.getElementById(`player-${user.uid}`);
-    if (playerDiv) {
-        playerDiv.remove();
-    }
-}
-
-// ====================================
-// END CALL FUNCTION
-// ====================================
 async function endCall() {
-    const videoSection = document.getElementById('videoSection');
-    const fakeVideo = document.getElementById('adminFakeVideo');
-    
-    videoSection.classList.add('hidden');
+    document.getElementById('videoSection').classList.add('hidden');
     
     if (isAdmin) {
-        // Admin: Stop fake video
+        const fakeVideo = document.getElementById('adminFakeVideo');
         fakeVideo.pause();
         fakeVideo.src = '';
         fakeVideo.classList.add('hidden');
         document.getElementById('localVideo').style.display = 'block';
     } else {
-        // Regular user: Leave Agora channel
-        if (localTracks.audioTrack) {
-            localTracks.audioTrack.close();
-        }
-        if (localTracks.videoTrack) {
-            localTracks.videoTrack.close();
-        }
-        
-        // Remove all remote video players
-        const remoteVideoContainer = document.getElementById('remoteVideos');
-        remoteVideoContainer.innerHTML = '';
-        
-        if (agoraClient) {
-            await agoraClient.leave();
+        if (localTracks.audioTrack) localTracks.audioTrack.close();
+        if (localTracks.videoTrack) localTracks.videoTrack.close();
+        document.getElementById('remoteVideos').innerHTML = '';
+        if (agoraClient) await agoraClient.leave();
+    }
+}
+
+// ====================================
+// ADMIN VIDEO PANEL
+// ====================================
+function toggleAdminPanel() {
+    const content = document.querySelector('.admin-panel-content');
+    const btn = document.querySelector('.collapse-btn');
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        btn.textContent = '−';
+    } else {
+        content.style.display = 'none';
+        btn.textContent = '+';
+    }
+}
+
+function loadAdminVideos() {
+    if (localStorage.getItem('adminVideos')) {
+        const videos = JSON.parse(localStorage.getItem('adminVideos'));
+        document.getElementById('videoUrl1').value = videos[0] || '';
+        document.getElementById('videoUrl2').value = videos[1] || '';
+        document.getElementById('videoUrl3').value = videos[2] || '';
+    }
+}
+
+function saveAdminVideos() {
+    const url1 = document.getElementById('videoUrl1').value.trim();
+    const url2 = document.getElementById('videoUrl2').value.trim();
+    const url3 = document.getElementById('videoUrl3').value.trim();
+    
+    const videos = [
+        convertGoogleDriveLink(url1),
+        convertGoogleDriveLink(url2),
+        convertGoogleDriveLink(url3)
+    ].filter(url => url !== '');
+    
+    if (videos.length === 0) {
+        alert('Please add at least one video URL!');
+        return;
+    }
+    
+    adminVideoUrls = videos;
+    localStorage.setItem('adminVideos', JSON.stringify(videos));
+    alert('✅ Videos saved successfully!');
+}
+
+function convertGoogleDriveLink(url) {
+    if (!url) return '';
+    if (url.includes('drive.google.com')) {
+        const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+            return `https://drive.google.com/uc?export=download&id=${match[1]}`;
         }
     }
+    return url;
 }
