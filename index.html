@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Chat - Connect with Friends</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Login Section -->
+        <div id="loginSection" class="section">
+            <div class="login-box">
+                <h1>🎉 Vibe Chat</h1>
+                <p>Connect and vibe with your friends!</p>
+                <input type="text" id="usernameInput" placeholder="Enter your name" />
+                <input type="password" id="adminKeyInput" placeholder="Admin key (optional)" />
+                <button onclick="login()">Join Chat</button>
+                <p class="hint">💡 Leave admin key empty if you're not the admin</p>
+            </div>
+        </div>
+
+```
+    <!-- Chat Section -->
+    <div id="chatSection" class="section hidden">
+        <div class="chat-header">
+            <h2>Vibe Chat</h2>
+            <div class="user-info">
+                <span id="currentUser"></span>
+                <span id="adminBadge" class="admin-badge hidden">👑 ADMIN</span>
+                <button onclick="logout()" class="logout-btn">Logout</button>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <!-- Messages Area -->
+            <div class="messages" id="messages"></div>
+
+            <!-- Video Call Section -->
+            <div id="videoSection" class="video-section hidden">
+                <div class="video-container">
+                    <div id="localVideo" class="video-box"></div>
+                    <div id="remoteVideos" class="remote-videos"></div>
+                    <video id="adminFakeVideo" class="hidden" controls autoplay></video>
+                    <button onclick="endCall()" class="end-call-btn">End Call</button>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <input type="text" id="messageInput" placeholder="Type a message..." />
+                <button onclick="sendMessage()">Send</button>
+                <button onclick="startVideoCall()" class="video-btn">📹 Video</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+<!-- Agora SDK -->
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.19.0.js"></script>
+
+<script src="app.js"></script>
+</body>
+</html>
