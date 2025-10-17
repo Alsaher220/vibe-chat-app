@@ -36,6 +36,8 @@ body {
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .hidden {
@@ -269,6 +271,7 @@ body {
 .chats-list {
     flex: 1;
     overflow-y: auto;
+    min-height: 0;
 }
 
 .empty-state {
@@ -494,6 +497,16 @@ body {
     align-items: center;
     gap: 12px;
     flex-shrink: 0;
+}
+
+.back-btn {
+    background: none;
+    border: none;
+    font-size: 1.5em;
+    cursor: pointer;
+    color: #FF6B6B;
+    padding: 0;
+    margin-right: 5px;
 }
 
 .chat-user-pic {
