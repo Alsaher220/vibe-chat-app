@@ -3,62 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Chat - Connect with Friends</title>
+    <title>Vibe Chat - Private Messaging</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <!-- Login Section -->
-        <div id="loginSection" class="section">
-            <div class="login-box">
+        <!-- Authentication Section -->
+        <div id="authSection" class="section">
+            <div class="auth-box">
                 <h1>🎉 Vibe Chat</h1>
-                <p>Connect and vibe with your friends!</p>
-                <input type="text" id="usernameInput" placeholder="Enter your name" />
-                <input type="password" id="adminKeyInput" placeholder="Admin key (optional)" />
-                <button onclick="login()">Join Chat</button>
-                <p class="hint">💡 Leave admin key empty if you're not the admin</p>
+                <p class="tagline">Connect privately with friends!</p>
+
+            <!-- Login Form -->
+            <div id="loginForm" class="auth-form">
+                <h2>Login</h2>
+                <input type="email" id="loginEmail" placeholder="Email" />
+                <input type="password" id="loginPassword" placeholder="Password" />
+                <input type="password" id="loginAdminKey" placeholder="Admin key (optional)" />
+                <button onclick="loginUser()">Login</button>
+                <p class="switch-form">Don't have an account? <span onclick="showSignup()">Sign up</span></p>
+            </div>
+            
+            <!-- Signup Form -->
+            <div id="signupForm" class="auth-form hidden">
+                <h2>Create Account</h2>
+                <input type="text" id="signupUsername" placeholder="Username" />
+                <input type="email" id="signupEmail" placeholder="Email" />
+                <input type="password" id="signupPassword" placeholder="Password (min 6 characters)" />
+                <div class="profile-pic-upload">
+                    <label for="profilePicInput" class="upload-label">
+                        <div id="profilePreview" class="profile-preview">
+                            <span>📷 Add Profile Picture</span>
+                        </div>
+                    </label>
+                    <input type="file" id="profilePicInput" accept="image/*" onchange="previewProfilePic()" />
+                </div>
+                <button onclick="signupUser()">Create Account</button>
+                <p class="switch-form">Already have an account? <span onclick="showLogin()">Login</span></p>
             </div>
         </div>
+    </div>
 
-```
-    <!-- Chat Section -->
-    <div id="chatSection" class="section hidden">
-        <div class="chat-header">
-            <h2>Vibe Chat</h2>
-            <div class="user-info">
-                <span id="currentUser"></span>
-                <span id="adminBadge" class="admin-badge hidden">👑 ADMIN</span>
-                <button onclick="logout()" class="logout-btn">Logout</button>
+    <!-- Main App Section -->
+    <div id="appSection" class="section hidden">
+        <!-- Header -->
+        <div class="app-header">
+            <div class="user-profile">
+                <img id="currentUserPic" src="" alt="Profile" class="header-profile-pic" />
+                <span id="currentUsername"></span>
+                <span id="adminBadge" class="admin-badge hidden">👑</span>
             </div>
+            <button onclick="logoutUser()" class="logout-btn">Logout</button>
         </div>
 
-        <div class="chat-container">
-            <!-- Messages Area -->
-            <div class="messages" id="messages"></div>
+        <!-- Two Column Layout -->
+        <div class="app-content">
+            <!-- Left: Chat List -->
+            <div class="chat-list-panel">
+                <div class="panel-header">
+                    <h3>Messages</h3>
+                    <button onclick="showUserSearch()" class="new-chat-btn">➕</button>
+                </div>
+                
+                <!-- Search Users Modal -->
+                <div id="userSearchModal" class="modal hidden">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Search Users</h3>
+                            <button onclick="closeUserSearch()" class="close-btn">✕</button>
+                        </div>
+                        <input type="text" id="userSearchInput" placeholder="Search by username..." oninput="searchUsers()" />
+                        <div id="searchResults" class="search-results"></div>
+                    </div>
+                </div>
 
-            <!-- Video Call Section -->
-            <div id="videoSection" class="video-section hidden">
-                <div class="video-container">
-                    <div id="localVideo" class="video-box"></div>
-                    <div id="remoteVideos" class="remote-videos"></div>
-                    <video id="adminFakeVideo" class="hidden" controls autoplay></video>
-                    <button onclick="endCall()" class="end-call-btn">End Call</button>
+                <!-- Admin Video Panel -->
+                <div id="adminPanel" class="admin-panel-inline hidden">
+                    <div class="admin-panel-header">
+                        <h4>👑 Admin Videos</h4>
+                        <button onclick="toggleAdminPanel()" class="collapse-btn">−</button>
+                    </div>
+                    <div class="admin-panel-content">
+                        <input type="text" id="videoUrl1" placeholder="Google Drive Link 1" />
+                        <input type="text" id="videoUrl2" placeholder="Google Drive Link 2" />
+                        <input type="text" id="videoUrl3" placeholder="Google Drive Link 3" />
+                        <button onclick="saveAdminVideos()" class="save-btn">💾 Save</button>
+                    </div>
+                </div>
+
+                <div id="chatsList" class="chats-list">
+                    <p class="empty-state">No conversations yet. Start chatting!</p>
                 </div>
             </div>
 
-            <!-- Input Area -->
-            <div class="input-area">
-                <input type="text" id="messageInput" placeholder="Type a message..." />
-                <button onclick="sendMessage()">Send</button>
-                <button onclick="startVideoCall()" class="video-btn">📹 Video</button>
+            <!-- Right: Active Chat -->
+            <div class="chat-panel">
+                <div id="noChatSelected" class="no-chat-selected">
+                    <div class="welcome-message">
+                        <h2>Welcome to Vibe Chat! 💬</h2>
+                        <p>Select a conversation or start a new one</p>
+                    </div>
+                </div>
+
+                <div id="activeChat" class="active-chat hidden">
+                    <div class="chat-header-bar">
+                        <img id="chatUserPic" src="" alt="" class="chat-user-pic" />
+                        <span id="chatUsername"></span>
+                        <button onclick="startVideoCall()" class="video-call-btn">📹</button>
+                    </div>
+
+                    <div id="messagesArea" class="messages-area"></div>
+
+                    <!-- Video Call Section -->
+                    <div id="videoSection" class="video-section hidden">
+                        <div class="video-container">
+                            <div id="localVideo" class="video-box"></div>
+                            <div id="remoteVideos" class="remote-videos"></div>
+                            <video id="adminFakeVideo" class="admin-fake-video hidden" controls autoplay></video>
+                            <button onclick="endCall()" class="end-call-btn">End Call</button>
+                        </div>
+                    </div>
+
+                    <div class="message-input-area">
+                        <input type="text" id="messageInput" placeholder="Type a message..." onkeypress="handleEnter(event)" />
+                        <button onclick="sendMessage()">Send</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
-
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 
 <!-- Agora SDK -->
 <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.19.0.js"></script>
