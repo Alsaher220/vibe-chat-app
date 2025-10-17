@@ -222,15 +222,18 @@ body {
 .app-content {
     display: flex;
     height: calc(100% - 70px);
+    overflow: hidden;
 }
 
 /* Chat List Panel */
 .chat-list-panel {
     width: 350px;
+    min-width: 350px;
     border-right: 1px solid #ddd;
     display: flex;
     flex-direction: column;
     background: #f8f8f8;
+    overflow: hidden;
 }
 
 .panel-header {
@@ -452,6 +455,8 @@ body {
     display: flex;
     flex-direction: column;
     background: #fff;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .no-chat-selected {
@@ -474,9 +479,11 @@ body {
 }
 
 .active-chat {
-    flex: 1;
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .chat-header-bar {
@@ -486,6 +493,7 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-shrink: 0;
 }
 
 .chat-user-pic {
@@ -571,10 +579,13 @@ body {
     border-top: 1px solid #ddd;
     display: flex;
     gap: 10px;
+    flex-shrink: 0;
+    align-items: center;
 }
 
 .message-input-area input {
     flex: 1;
+    min-width: 0;
     padding: 12px 15px;
     border: 2px solid #ddd;
     border-radius: 25px;
@@ -594,6 +605,8 @@ body {
     border-radius: 25px;
     cursor: pointer;
     transition: transform 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .message-input-area button:hover {
@@ -672,18 +685,55 @@ body {
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
+    .container {
+        padding: 0;
+    }
+    
+    .section {
+        border-radius: 0;
+        height: 100vh;
+    }
+    
     .app-content {
-        flex-direction: column;
+        flex-direction: row;
+        height: calc(100vh - 70px);
     }
     
     .chat-list-panel {
         width: 100%;
-        height: 50%;
+        max-width: 100%;
         border-right: none;
-        border-bottom: 1px solid #ddd;
+    }
+    
+    .chat-list-panel.has-active-chat {
+        display: none;
+    }
+    
+    .chat-panel {
+        width: 100%;
+        position: absolute;
+        top: 70px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: white;
+        z-index: 10;
+    }
+    
+    .chat-panel.no-active {
+        display: none;
     }
     
     .modal-content {
         width: 95%;
+    }
+    
+    .message-input-area {
+        padding: 10px 15px;
+    }
+    
+    .message-input-area button {
+        padding: 10px 20px;
+        font-size: 0.9em;
     }
 }
