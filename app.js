@@ -1,6 +1,4 @@
-// ====================================
-// FIREBASE CONFIGURATION
-// ====================================
+// FIREBASE CONFIG
 const firebaseConfig = {
     apiKey: "AIzaSyCU0Agq1CTsKS2YbO-mzXr2jOseQ49bp8k",
     authDomain: "vibechatapp-504eb.firebaseapp.com",
@@ -15,112 +13,105 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const storage = firebase.storage();
 
-// ====================================
-// AGORA CONFIGURATION
-// ====================================
+// AGORA CONFIG
 const AGORA_APP_ID = "3b9822e28fc04a8bbccfc78314fda8f4";
 const ADMIN_SECRET = "vibeadmin123";
 
-// ====================================
-// GLOBAL VARIABLES
-// ====================================
+// GLOBALS
 let currentUser = null;
 let isAdmin = false;
 let activeChat = null;
-let unsubscribeMessages = null;
-let adminVideoUrls = [];
+let unsubMessages = null;
+let adminVids = [];
 let agoraClient = null;
-let localTracks = { videoTrack: null, audioTrack: null };
+let localTracks = { video: null, audio: null };
 
-// Load admin videos
-if (localStorage.getItem('adminVideos')) {
-    adminVideoUrls = JSON.parse(localStorage.getItem('adminVideos'));
+// Load saved videos
+if (localStorage.getItem('adminVids')) {
+    adminVids = JSON.parse(localStorage.getItem('adminVids'));
 }
 
-// ====================================
-// AUTH STATE LISTENER
-// ====================================
-auth.onAuthStateChanged((user) => {
+// AUTH LISTENER
+auth.onAuthStateChanged(user => {
     if (user) {
-        loadUserProfile(user.uid);
+        loadUser(user.uid);
     } else {
-        document.getElementById('authSection').classList.remove('hidden');
-        document.getElementById('appSection').classList.add('hidden');
+        document.getElementById('authScreen').classList.remove('hidden');
+        document.getElementById('mainApp').classList.add('hidden');
     }
 });
 
-// ====================================
-// AUTH FUNCTIONS
-// ====================================
+// ===== AUTH FUNCTIONS =====
 function showSignup() {
-    document.getElementById('loginForm').classList.add('hidden');
-    document.getElementById('signupForm').classList.remove('hidden');
+    document.getElementById('loginBox').classList.add('hidden');
+    document.getElementById('signupBox').classList.remove('hidden');
 }
 
 function showLogin() {
-    document.getElementById('signupForm').classList.add('hidden');
-    document.getElementById('loginForm').classList.remove('hidden');
+    document.getElementById('signupBox').classList.add('hidden');
+    document.getElementById('loginBox').classList.remove('hidden');
 }
 
-function previewProfilePic() {
-    const file = document.getElementById('profilePicInput').files[0];
+function previewImage() {
+    const file = document.getElementById('profilePic').files[0];
     if (file) {
         const reader = new FileReader();
-        reader.onload = (e) => {
-            document.getElementById('profilePreview').innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+        reader.onload = e => {
+            document.getElementById('profilePreview').innerHTML = `<img src="${e.target.result}">`;
         };
         reader.readAsDataURL(file);
     }
 }
 
-async function signupUser() {
+async function signup() {
     const username = document.getElementById('signupUsername').value.trim();
     const email = document.getElementById('signupEmail').value.trim();
     const password = document.getElementById('signupPassword').value;
-    const profilePicFile = document.getElementById('profilePicInput').files[0];
+    const picFile = document.getElementById('profilePic').files[0];
 
     if (!username || !email || !password) {
-        alert('Please fill in all fields!');
+        alert('Please fill all fields!');
         return;
     }
 
     if (password.length < 6) {
-        alert('Password must be at least 6 characters!');
+        alert('Password must be at least 6 characters');
         return;
     }
 
     try {
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        const uid = cred.user.uid;
 
-        let profilePicUrl = 'https://via.placeholder.com/150?text=' + username.charAt(0).toUpperCase();
-        if (profilePicFile) {
-            const storageRef = storage.ref(`profilePics/${user.uid}`);
-            await storageRef.put(profilePicFile);
-            profilePicUrl = await storageRef.getDownloadURL();
+        let picUrl = `https://ui-avatars.com/api/?name=${username}&size=200&background=random`;
+        
+        if (picFile) {
+            const ref = storage.ref(`profiles/${uid}`);
+            await ref.put(picFile);
+            picUrl = await ref.getDownloadURL();
         }
 
-        await db.collection('users').doc(user.uid).set({
-            uid: user.uid,
+        await db.collection('users').doc(uid).set({
+            uid: uid,
             username: username,
             email: email,
-            profilePic: profilePicUrl,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            profilePic: picUrl,
+            created: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        alert('Account created successfully! ✅');
-    } catch (error) {
-        alert('Error: ' + error.message);
+        alert('Account created! ✅');
+    } catch (err) {
+        alert('Error: ' + err.message);
     }
 }
 
-async function loginUser() {
+async function login() {
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
     const adminKey = document.getElementById('loginAdminKey').value.trim();
 
     if (!email || !password) {
-        alert('Please enter email and password!');
+        alert('Enter email and password');
         return;
     }
 
@@ -130,209 +121,195 @@ async function loginUser() {
 
     try {
         await auth.signInWithEmailAndPassword(email, password);
-    } catch (error) {
-        alert('Error: ' + error.message);
+    } catch (err) {
+        alert('Error: ' + err.message);
     }
 }
 
-function logoutUser() {
+function logout() {
     auth.signOut();
+    isAdmin = false;
+    activeChat = null;
 }
 
-async function loadUserProfile(uid) {
-    const userDoc = await db.collection('users').doc(uid).get();
-    if (userDoc.exists) {
-        currentUser = userDoc.data();
+async function loadUser(uid) {
+    const doc = await db.collection('users').doc(uid).get();
+    if (doc.exists) {
+        currentUser = doc.data();
         document.getElementById('currentUsername').textContent = currentUser.username;
         document.getElementById('currentUserPic').src = currentUser.profilePic;
-        
+
         if (isAdmin) {
             document.getElementById('adminBadge').classList.remove('hidden');
-            document.getElementById('adminPanel').classList.remove('hidden');
-            loadAdminVideos();
+            document.getElementById('adminVideos').classList.remove('hidden');
+            loadAdminVids();
         }
+
+        document.getElementById('authScreen').classList.add('hidden');
+        document.getElementById('mainApp').classList.remove('hidden');
         
-        document.getElementById('authSection').classList.add('hidden');
-        document.getElementById('appSection').classList.remove('hidden');
-        
-        loadChatsList();
+        loadChats();
     }
 }
 
-// ====================================
-// CHAT LIST FUNCTIONS
-// ====================================
-async function loadChatsList() {
-    const chatsListDiv = document.getElementById('chatsList');
-    
+// ===== CHAT LIST =====
+function loadChats() {
     db.collection('chats')
         .where('participants', 'array-contains', currentUser.uid)
-        .onSnapshot((snapshot) => {
+        .onSnapshot(async snapshot => {
+            const list = document.getElementById('chatsList');
+            list.innerHTML = '';
+
             if (snapshot.empty) {
-                chatsListDiv.innerHTML = '<p class="empty-state">No conversations yet. Start chatting!</p>';
+                list.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">No chats yet</p>';
                 return;
             }
-            
-            chatsListDiv.innerHTML = '';
-            snapshot.forEach(async (doc) => {
+
+            for (const doc of snapshot.docs) {
                 const chat = doc.data();
-                const otherUserId = chat.participants.find(id => id !== currentUser.uid);
-                const otherUserDoc = await db.collection('users').doc(otherUserId).get();
-                const otherUser = otherUserDoc.data();
-                
-                const chatItem = document.createElement('div');
-                chatItem.className = 'chat-item';
-                chatItem.onclick = () => openChat(doc.id, otherUser);
-                chatItem.innerHTML = `
-                    <img src="${otherUser.profilePic}" class="chat-item-pic" alt="${otherUser.username}">
+                const otherUid = chat.participants.find(id => id !== currentUser.uid);
+                const userDoc = await db.collection('users').doc(otherUid).get();
+                const user = userDoc.data();
+
+                const item = document.createElement('div');
+                item.className = 'chat-item';
+                item.onclick = () => openChat(doc.id, user);
+                item.innerHTML = `
+                    <img src="${user.profilePic}">
                     <div class="chat-item-info">
-                        <div class="chat-item-name">${otherUser.username}</div>
-                        <div class="chat-item-preview">${chat.lastMessage || 'Start chatting!'}</div>
+                        <div class="chat-item-name">${user.username}</div>
+                        <div class="chat-item-msg">${chat.lastMessage || 'Say hi!'}</div>
                     </div>
                 `;
-                chatsListDiv.appendChild(chatItem);
-            });
+                list.appendChild(item);
+            }
         });
 }
 
-// ====================================
-// USER SEARCH
-// ====================================
-function showUserSearch() {
-    document.getElementById('userSearchModal').classList.remove('hidden');
+// ===== SEARCH USERS =====
+function showSearchModal() {
+    document.getElementById('searchModal').classList.remove('hidden');
 }
 
-function closeUserSearch() {
-    document.getElementById('userSearchModal').classList.add('hidden');
-    document.getElementById('userSearchInput').value = '';
+function closeSearch() {
+    document.getElementById('searchModal').classList.add('hidden');
+    document.getElementById('searchInput').value = '';
     document.getElementById('searchResults').innerHTML = '';
 }
 
 async function searchUsers() {
-    const query = document.getElementById('userSearchInput').value.trim().toLowerCase();
-    const resultsDiv = document.getElementById('searchResults');
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    const results = document.getElementById('searchResults');
     
     if (!query) {
-        resultsDiv.innerHTML = '';
+        results.innerHTML = '';
         return;
     }
-    
-    const usersSnapshot = await db.collection('users').get();
-    resultsDiv.innerHTML = '';
-    
-    usersSnapshot.forEach((doc) => {
+
+    const snapshot = await db.collection('users').get();
+    results.innerHTML = '';
+
+    snapshot.forEach(doc => {
         const user = doc.data();
         if (user.uid !== currentUser.uid && user.username.toLowerCase().includes(query)) {
-            const userResult = document.createElement('div');
-            userResult.className = 'user-result';
-            userResult.onclick = () => startChatWith(user);
-            userResult.innerHTML = `
-                <img src="${user.profilePic}" class="user-result-pic" alt="${user.username}">
+            const item = document.createElement('div');
+            item.className = 'user-result';
+            item.onclick = () => startChat(user);
+            item.innerHTML = `
+                <img src="${user.profilePic}">
                 <span>${user.username}</span>
             `;
-            resultsDiv.appendChild(userResult);
+            results.appendChild(item);
         }
     });
 }
 
-async function startChatWith(otherUser) {
-    const participants = [currentUser.uid, otherUser.uid].sort();
+async function startChat(user) {
+    const participants = [currentUser.uid, user.uid].sort();
     const chatId = participants.join('_');
     
-    const chatRef = db.collection('chats').doc(chatId);
-    const chatDoc = await chatRef.get();
+    const ref = db.collection('chats').doc(chatId);
+    const doc = await ref.get();
     
-    if (!chatDoc.exists) {
-        await chatRef.set({
+    if (!doc.exists) {
+        await ref.set({
             participants: participants,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            created: firebase.firestore.FieldValue.serverTimestamp(),
             lastMessage: null
         });
     }
     
-    closeUserSearch();
-    openChat(chatId, otherUser);
+    closeSearch();
+    openChat(chatId, user);
 }
 
-// ====================================
-// OPEN CHAT
-// ====================================
-function openChat(chatId, otherUser) {
-    activeChat = { id: chatId, user: otherUser };
+// ===== OPEN CHAT =====
+function openChat(chatId, user) {
+    activeChat = { id: chatId, user: user };
     
-    document.getElementById('noChatSelected').classList.add('hidden');
+    document.getElementById('noChat').classList.add('hidden');
     document.getElementById('activeChat').classList.remove('hidden');
-    document.getElementById('chatUsername').textContent = otherUser.username;
-    document.getElementById('chatUserPic').src = otherUser.profilePic;
+    document.getElementById('chatName').textContent = user.username;
+    document.getElementById('chatPic').src = user.profilePic;
     
-    // Show back button on mobile
+    // Mobile: hide sidebar
     if (window.innerWidth <= 768) {
-        document.querySelector('.back-btn').style.display = 'block';
-        document.querySelector('.chat-list-panel').classList.add('has-active-chat');
+        document.getElementById('sidebar').classList.add('hide-mobile');
+        document.querySelector('.btn-back').classList.remove('hidden');
     }
     
-    if (unsubscribeMessages) {
-        unsubscribeMessages();
-    }
-    
+    if (unsubMessages) unsubMessages();
     loadMessages(chatId);
 }
 
-function closeChat() {
-    document.getElementById('activeChat').classList.add('hidden');
-    document.getElementById('noChatSelected').classList.remove('hidden');
-    document.querySelector('.back-btn').style.display = 'none';
-    document.querySelector('.chat-list-panel').classList.remove('has-active-chat');
-    
-    if (unsubscribeMessages) {
-        unsubscribeMessages();
-    }
-    activeChat = null;
+function backToList() {
+    document.getElementById('sidebar').classList.remove('hide-mobile');
+    document.getElementById('chatArea').classList.add('hide-mobile');
+    document.querySelector('.btn-back').classList.add('hidden');
 }
 
+// ===== MESSAGES =====
 function loadMessages(chatId) {
-    const messagesArea = document.getElementById('messagesArea');
+    const container = document.getElementById('messages');
     
-    unsubscribeMessages = db.collection('chats').doc(chatId).collection('messages')
+    unsubMessages = db.collection('chats').doc(chatId).collection('messages')
         .orderBy('timestamp', 'asc')
-        .onSnapshot((snapshot) => {
-            messagesArea.innerHTML = '';
-            snapshot.forEach((doc) => {
+        .onSnapshot(snapshot => {
+            container.innerHTML = '';
+            snapshot.forEach(doc => {
                 const msg = doc.data();
-                displayMessage(msg);
+                showMessage(msg);
             });
-            messagesArea.scrollTop = messagesArea.scrollHeight;
+            container.scrollTop = container.scrollHeight;
         });
 }
 
-function displayMessage(msg) {
-    const messagesArea = document.getElementById('messagesArea');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${msg.senderId === currentUser.uid ? 'own' : 'other'}`;
+function showMessage(msg) {
+    const container = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = `message ${msg.senderId === currentUser.uid ? 'own' : 'other'}`;
     
-    let timeString = 'Just now';
+    let time = 'Now';
     if (msg.timestamp) {
         const date = msg.timestamp.toDate();
-        timeString = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     }
     
-    messageDiv.innerHTML = `
-        <div class="message-content">
+    div.innerHTML = `
+        <div class="msg-bubble">
             ${msg.text}
-            <div class="message-time">${timeString}</div>
+            <div class="msg-time">${time}</div>
         </div>
     `;
-    messagesArea.appendChild(messageDiv);
+    container.appendChild(div);
 }
 
-function handleEnter(e) {
-    if (e.key === 'Enter') {
-        sendMessage();
-    }
+function checkEnter(e) {
+    if (e.key === 'Enter') sendMsg();
 }
 
-async function sendMessage() {
-    const input = document.getElementById('messageInput');
+async function sendMsg() {
+    const input = document.getElementById('msgInput');
     const text = input.value.trim();
     
     if (!text || !activeChat) return;
@@ -345,127 +322,111 @@ async function sendMessage() {
     
     await db.collection('chats').doc(activeChat.id).update({
         lastMessage: text,
-        lastMessageTime: firebase.firestore.FieldValue.serverTimestamp()
+        lastTime: firebase.firestore.FieldValue.serverTimestamp()
     });
     
     input.value = '';
 }
 
-// ====================================
-// VIDEO CALL FUNCTIONS
-// ====================================
-async function startVideoCall() {
-    document.getElementById('videoSection').classList.remove('hidden');
+// ===== VIDEO CALL =====
+async function startCall() {
+    document.getElementById('videoModal').classList.remove('hidden');
     
     if (isAdmin) {
-        showAdminFakeVideo();
+        showAdminVideo();
     } else {
-        await startRealVideoCall();
+        await startRealCall();
     }
 }
 
-function showAdminFakeVideo() {
-    const fakeVideo = document.getElementById('adminFakeVideo');
-    document.getElementById('localVideo').style.display = 'none';
-    fakeVideo.classList.remove('hidden');
+function showAdminVideo() {
+    const video = document.getElementById('adminVideo');
+    document.getElementById('localVideoDiv').style.display = 'none';
+    video.classList.remove('hidden');
     
-    const randomVideo = adminVideoUrls[Math.floor(Math.random() * adminVideoUrls.length)];
-    fakeVideo.src = randomVideo || 'video1.mp4';
+    const vid = adminVids[Math.floor(Math.random() * adminVids.length)];
+    video.src = vid || 'video1.mp4';
 }
 
-async function startRealVideoCall() {
+async function startRealCall() {
     try {
         agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         await agoraClient.join(AGORA_APP_ID, activeChat.id, null, currentUser.uid);
         
-        localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack();
+        localTracks.audio = await AgoraRTC.createMicrophoneAudioTrack();
+        localTracks.video = await AgoraRTC.createCameraVideoTrack();
         
-        localTracks.videoTrack.play('localVideo');
-        await agoraClient.publish([localTracks.audioTrack, localTracks.videoTrack]);
+        localTracks.video.play('localVideoDiv');
+        await agoraClient.publish([localTracks.audio, localTracks.video]);
         
         agoraClient.on('user-published', async (user, mediaType) => {
             await agoraClient.subscribe(user, mediaType);
             if (mediaType === 'video') {
-                const remoteDiv = document.createElement('div');
-                remoteDiv.id = `player-${user.uid}`;
-                remoteDiv.style = 'width:200px;height:150px;background:#222;border-radius:10px;';
-                document.getElementById('remoteVideos').appendChild(remoteDiv);
-                user.videoTrack.play(`player-${user.uid}`);
+                const div = document.createElement('div');
+                div.id = `remote-${user.uid}`;
+                div.style = 'width:100%;height:100%;';
+                document.getElementById('remoteVideoDiv').appendChild(div);
+                user.videoTrack.play(div.id);
             }
             if (mediaType === 'audio') {
                 user.audioTrack.play();
             }
         });
-    } catch (error) {
-        console.error('Video call error:', error);
+    } catch (err) {
+        console.error('Video error:', err);
         alert('Could not start video call');
     }
 }
 
 async function endCall() {
-    document.getElementById('videoSection').classList.add('hidden');
+    document.getElementById('videoModal').classList.add('hidden');
     
     if (isAdmin) {
-        const fakeVideo = document.getElementById('adminFakeVideo');
-        fakeVideo.pause();
-        fakeVideo.src = '';
-        fakeVideo.classList.add('hidden');
-        document.getElementById('localVideo').style.display = 'block';
+        const video = document.getElementById('adminVideo');
+        video.pause();
+        video.src = '';
+        video.classList.add('hidden');
+        document.getElementById('localVideoDiv').style.display = 'block';
     } else {
-        if (localTracks.audioTrack) localTracks.audioTrack.close();
-        if (localTracks.videoTrack) localTracks.videoTrack.close();
-        document.getElementById('remoteVideos').innerHTML = '';
+        if (localTracks.audio) localTracks.audio.close();
+        if (localTracks.video) localTracks.video.close();
+        document.getElementById('remoteVideoDiv').innerHTML = '';
         if (agoraClient) await agoraClient.leave();
     }
 }
 
-// ====================================
-// ADMIN VIDEO PANEL
-// ====================================
-function toggleAdminPanel() {
-    const content = document.querySelector('.admin-panel-content');
-    const btn = document.querySelector('.collapse-btn');
-    if (content.style.display === 'none') {
-        content.style.display = 'block';
-        btn.textContent = '−';
-    } else {
-        content.style.display = 'none';
-        btn.textContent = '+';
+// ===== ADMIN VIDEOS =====
+function loadAdminVids() {
+    if (localStorage.getItem('adminVids')) {
+        const vids = JSON.parse(localStorage.getItem('adminVids'));
+        document.getElementById('vid1').value = vids[0] || '';
+        document.getElementById('vid2').value = vids[1] || '';
+        document.getElementById('vid3').value = vids[2] || '';
     }
 }
 
-function loadAdminVideos() {
-    if (localStorage.getItem('adminVideos')) {
-        const videos = JSON.parse(localStorage.getItem('adminVideos'));
-        document.getElementById('videoUrl1').value = videos[0] || '';
-        document.getElementById('videoUrl2').value = videos[1] || '';
-        document.getElementById('videoUrl3').value = videos[2] || '';
-    }
-}
-
-function saveAdminVideos() {
-    const url1 = document.getElementById('videoUrl1').value.trim();
-    const url2 = document.getElementById('videoUrl2').value.trim();
-    const url3 = document.getElementById('videoUrl3').value.trim();
+function saveVideos() {
+    const v1 = document.getElementById('vid1').value.trim();
+    const v2 = document.getElementById('vid2').value.trim();
+    const v3 = document.getElementById('vid3').value.trim();
     
-    const videos = [
-        convertGoogleDriveLink(url1),
-        convertGoogleDriveLink(url2),
-        convertGoogleDriveLink(url3)
-    ].filter(url => url !== '');
+    const vids = [
+        convertDriveLink(v1),
+        convertDriveLink(v2),
+        convertDriveLink(v3)
+    ].filter(v => v !== '');
     
-    if (videos.length === 0) {
-        alert('Please add at least one video URL!');
+    if (vids.length === 0) {
+        alert('Add at least one video!');
         return;
     }
     
-    adminVideoUrls = videos;
-    localStorage.setItem('adminVideos', JSON.stringify(videos));
-    alert('✅ Videos saved successfully!');
+    adminVids = vids;
+    localStorage.setItem('adminVids', JSON.stringify(vids));
+    alert('✅ Videos saved!');
 }
 
-function convertGoogleDriveLink(url) {
+function convertDriveLink(url) {
     if (!url) return '';
     if (url.includes('drive.google.com')) {
         const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
