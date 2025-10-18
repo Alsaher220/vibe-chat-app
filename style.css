@@ -270,6 +270,7 @@ body {
 .chats-list {
     flex: 1;
     overflow-y: auto;
+    padding: 10px 0;
 }
 
 .chat-item {
@@ -587,8 +588,18 @@ body {
         height: 100vh;
     }
 
+    .app-body {
+        position: relative;
+    }
+
     .sidebar {
         width: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
     }
 
     .sidebar.hide-mobile {
@@ -597,15 +608,17 @@ body {
 
     .chat-area {
         position: absolute;
-        top: 55px;
+        top: 0;
         left: 0;
         right: 0;
         bottom: 0;
         background: white;
+        z-index: 2;
+        display: none;
     }
 
-    .chat-area.hide-mobile {
-        display: none;
+    .chat-area.show-mobile {
+        display: flex;
     }
 
     .btn-back {
