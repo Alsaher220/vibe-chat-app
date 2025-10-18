@@ -252,9 +252,10 @@ function openChat(chatId, user) {
     document.getElementById('chatName').textContent = user.username;
     document.getElementById('chatPic').src = user.profilePic;
     
-    // Mobile: hide sidebar
+    // Mobile: show chat area, hide sidebar
     if (window.innerWidth <= 768) {
         document.getElementById('sidebar').classList.add('hide-mobile');
+        document.getElementById('chatArea').classList.add('show-mobile');
         document.querySelector('.btn-back').classList.remove('hidden');
     }
     
@@ -264,8 +265,12 @@ function openChat(chatId, user) {
 
 function backToList() {
     document.getElementById('sidebar').classList.remove('hide-mobile');
-    document.getElementById('chatArea').classList.add('hide-mobile');
+    document.getElementById('chatArea').classList.remove('show-mobile');
     document.querySelector('.btn-back').classList.add('hidden');
+    
+    // Reset to no chat selected
+    document.getElementById('activeChat').classList.add('hidden');
+    document.getElementById('noChat').classList.remove('hidden');
 }
 
 // ===== MESSAGES =====
@@ -434,5 +439,3 @@ function convertDriveLink(url) {
             return `https://drive.google.com/uc?export=download&id=${match[1]}`;
         }
     }
-    return url;
-}
