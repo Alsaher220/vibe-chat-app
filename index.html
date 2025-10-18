@@ -7,123 +7,115 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Auth Screen -->
-    <div id="authScreen" class="screen">
-        <div class="auth-container">
+    <!-- Login/Signup Screen -->
+    <div id="auth" class="screen">
+        <div class="box">
             <h1>🎉 Vibe Chat</h1>
-            <p class="tagline">Connect & Vibe with Friends</p>
-
+            
             <!-- Login -->
-            <div id="loginBox" class="auth-box">
+            <div id="login">
                 <h2>Login</h2>
-                <input type="email" id="loginEmail" placeholder="Email">
-                <input type="password" id="loginPassword" placeholder="Password">
-                <input type="password" id="loginAdminKey" placeholder="Admin key (optional)">
+                <input type="email" id="le" placeholder="Email">
+                <input type="password" id="lp" placeholder="Password">
+                <input type="password" id="ak" placeholder="Admin key (optional)">
                 <button onclick="login()">Login</button>
-                <p class="switch-text">Don't have an account? <span onclick="showSignup()">Sign up</span></p>
+                <p>No account? <span onclick="toSignup()">Sign up</span></p>
             </div>
 
             <!-- Signup -->
-            <div id="signupBox" class="auth-box hidden">
+            <div id="signup" class="hide">
                 <h2>Create Account</h2>
-                <input type="text" id="signupUsername" placeholder="Username">
-                <input type="email" id="signupEmail" placeholder="Email">
-                <input type="password" id="signupPassword" placeholder="Password (min 6 chars)">
-                <div class="profile-upload">
-                    <label for="profilePic">
-                        <div id="profilePreview" class="preview-circle">📷</div>
-                    </label>
-                    <input type="file" id="profilePic" accept="image/*" onchange="previewImage()">
-                </div>
+                <input type="text" id="sn" placeholder="Username">
+                <input type="email" id="se" placeholder="Email">
+                <input type="password" id="sp" placeholder="Password">
+                <label for="sf">
+                    <div id="prev">📷 Add Photo</div>
+                </label>
+                <input type="file" id="sf" accept="image/*" onchange="prev()">
                 <button onclick="signup()">Create Account</button>
-                <p class="switch-text">Have an account? <span onclick="showLogin()">Login</span></p>
+                <p>Have account? <span onclick="toLogin()">Login</span></p>
             </div>
         </div>
     </div>
 
     <!-- Main App -->
-    <div id="mainApp" class="screen hidden">
-        <!-- Header -->
-        <div class="app-header">
-            <div class="user-info">
-                <img id="currentUserPic" class="user-pic-small">
-                <span id="currentUsername"></span>
-                <span id="adminBadge" class="badge hidden">👑 ADMIN</span>
+    <div id="main" class="screen hide">
+        <!-- Top Bar -->
+        <div class="top">
+            <div class="user">
+                <img id="mp">
+                <span id="mn"></span>
+                <span id="ab" class="hide">👑</span>
             </div>
-            <button onclick="logout()" class="btn-logout">Logout</button>
+            <button onclick="logout()">Logout</button>
         </div>
 
         <!-- Main Content -->
-        <div class="app-body">
-            <!-- Sidebar -->
-            <div class="sidebar" id="sidebar">
-                <div class="sidebar-header">
+        <div class="content">
+            <!-- Left: Chats -->
+            <div id="left" class="side">
+                <div class="head">
                     <h3>Messages</h3>
-                    <button onclick="showSearchModal()" class="btn-new">+</button>
+                    <button onclick="openFind()">+</button>
                 </div>
 
-                <!-- Admin Panel -->
-                <div id="adminVideos" class="admin-section hidden">
-                    <h4>👑 Admin Videos</h4>
-                    <input type="text" id="vid1" placeholder="Google Drive Link 1">
-                    <input type="text" id="vid2" placeholder="Google Drive Link 2">
-                    <input type="text" id="vid3" placeholder="Google Drive Link 3">
-                    <button onclick="saveVideos()" class="btn-save">Save Videos</button>
+                <!-- Admin Videos -->
+                <div id="av" class="hide av">
+                    <strong>👑 Admin Videos</strong>
+                    <input type="text" id="v1" placeholder="Google Drive Link 1">
+                    <input type="text" id="v2" placeholder="Google Drive Link 2">
+                    <input type="text" id="v3" placeholder="Google Drive Link 3">
+                    <button onclick="saveV()">Save Videos</button>
                 </div>
 
-                <div id="chatsList" class="chats-list"></div>
+                <div id="list"></div>
             </div>
 
-            <!-- Chat Area -->
-            <div class="chat-area" id="chatArea">
-                <!-- No Chat Selected -->
-                <div id="noChat" class="no-chat">
-                    <h2>💬 Welcome to Vibe Chat</h2>
-                    <p>Select a conversation or start a new one</p>
+            <!-- Right: Chat -->
+            <div id="right" class="side">
+                <div id="empty">
+                    <h2>💬 Welcome</h2>
+                    <p>Select a chat or start new one</p>
                 </div>
 
-                <!-- Active Chat -->
-                <div id="activeChat" class="active-chat-container hidden">
-                    <!-- Chat Header -->
-                    <div class="chat-header">
-                        <button onclick="backToList()" class="btn-back hidden">←</button>
-                        <img id="chatPic" class="user-pic-small">
-                        <span id="chatName"></span>
-                        <button onclick="startCall()" class="btn-video">📹 Call</button>
+                <div id="active" class="hide">
+                    <div class="bar">
+                        <button onclick="back()" class="hide bb">←</button>
+                        <img id="cp">
+                        <span id="cn"></span>
+                        <button onclick="call()" class="vb">📹 Call</button>
                     </div>
 
-                    <!-- Messages -->
-                    <div id="messages" class="messages-container"></div>
+                    <div id="msgs"></div>
 
-                    <!-- Input -->
-                    <div class="input-container">
-                        <input type="text" id="msgInput" placeholder="Type a message..." onkeypress="checkEnter(event)">
-                        <button onclick="sendMsg()">Send</button>
+                    <div class="input">
+                        <input type="text" id="mi" placeholder="Type message..." onkeyup="ck(event)">
+                        <button onclick="send()">Send</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Search Modal -->
-    <div id="searchModal" class="modal hidden">
-        <div class="modal-box">
-            <div class="modal-header">
-                <h3>Search Users</h3>
-                <button onclick="closeSearch()" class="btn-close">×</button>
+    <!-- Find Users Modal -->
+    <div id="find" class="modal hide">
+        <div class="mbox">
+            <div class="mh">
+                <h3>Find Users</h3>
+                <button onclick="closeFind()">×</button>
             </div>
-            <input type="text" id="searchInput" placeholder="Search by username..." oninput="searchUsers()">
-            <div id="searchResults" class="search-results"></div>
+            <input type="text" id="fi" placeholder="Search..." oninput="findU()">
+            <div id="fr"></div>
         </div>
     </div>
 
-    <!-- Video Call Modal -->
-    <div id="videoModal" class="modal hidden">
-        <div class="video-box">
-            <div id="localVideoDiv" class="local-video"></div>
-            <div id="remoteVideoDiv" class="remote-video"></div>
-            <video id="adminVideo" class="admin-video hidden" controls autoplay></video>
-            <button onclick="endCall()" class="btn-end-call">End Call</button>
+    <!-- Video Modal -->
+    <div id="vid" class="modal hide">
+        <div class="vbox">
+            <div id="lv"></div>
+            <div id="rv"></div>
+            <video id="fv" class="hide" controls autoplay></video>
+            <button onclick="endC()">End Call</button>
         </div>
     </div>
 
@@ -132,10 +124,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-    
-    <!-- Agora -->
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.19.0.js"></script>
-    
     <script src="app.js"></script>
 </body>
 </html>
